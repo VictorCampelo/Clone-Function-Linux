@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	
 	valuesToClone values;
 
-	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_TRUNC | O_CLOEXEC);
+	values.fd = open ("bank.txt", O_RDWR | O_CREAT | O_SYNC | O_TRUNC | O_CLOEXEC);
 	if (values.fd == -1) {
 		perror("Failed to open file\n");
 		exit(1);
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
 
 	int status = 0;
 	unsigned long flags = 0;
-	if (argc > 1 && !strcmp(argv[1], "sim")) {
+	if (argc > 1 && !strcmp(argv[1], "y")) {
 		flags |= CLONE_VM;
 		flags |= CLONE_FILES;
 		flags |= CLONE_VFORK;
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 		printf("-> %s\n", values.text_read);
 		exit(1);
 	}
-	/* posicionando-se no inicio do arquivo... */
+	
 	if (lseek (values.fd, 0, SEEK_SET) < 0)
 	{
 		perror (argv[0]);
@@ -110,7 +110,6 @@ int main(int argc, char** argv) {
 
 	write (values.fd, values.text_write, strlen(values.text_write));
 
-	/* posicionando-se no inicio do arquivo... */
 	if (lseek (values.fd, 0, SEEK_SET) < 0)
 	{
 		perror (argv[0]);

@@ -1,2 +1,12 @@
-# clone-
-Little exemplo of use function Clone() in the C programming Language. Operating system topics - UFPI
+# clone()
+Operating system topics - UFPI
+Demonstration of function Clone() usage in the C programming Language. 
+
+To compiler: 
+	- "gcc clone.c -o clone"
+
+To execute:
+	-For activate flags(CLONE_FILES, CLONE_VM, CLONE_VFORK), use the argumment "y": 
+		- "./clone y"
+	-without flags: 
+		- "./Clone"
