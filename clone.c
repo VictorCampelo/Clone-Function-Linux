@@ -8,33 +8,47 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <locale.h>
 
 // CLONE_FILES - CLONE_VM - CLONE_VFORK
+#define MAX_READ 30
+#define MSG 45
+
 typedef struct
 {
-	char text_str[500];
 	int fd;
+	char text_write[MAX_READ+1];
+	char text_read[MAX_READ+1];
+	char text_msg[MSG];
 } valuesToClone;
 
-static int child_func(void* arg) {
+static int child(void* arg) {
 	valuesToClone* v1 = (valuesToClone*)arg;
-	printf("%d\n", v1->fd);
-	read(v1->fd, v1->text_str, 500);
-	printf("Pegou os dados =  %s\n", v1->text_str);
-	write (v1->fd, "dados roubados", 500);
-	read(v1->fd, v1->text_str, 500);
+	ftruncate(v1->fd, 0);
+	strcpy(v1->text_msg, "Filho: Obrigado por me emprestar o dinheiro");
+	strcpy(v1->text_write, "saldo: 0.0");
+	write(v1->fd, v1->text_write, strlen(v1->text_write));
+
 	close(v1->fd);
-	return 0;
+	v1->fd = open ("bank.txt", O_RDWR | O_SYNC | O_CLOEXEC);	
+	
+	read(v1->fd, v1->text_read, strlen(v1->text_write));
+
+	close(v1->fd);
+	_exit(0);
 }
 
 int main(int argc, char** argv) {
   // Aloca fila para o filho.
 	const int STACK_SIZE = 65536;
 	char* stack = malloc(STACK_SIZE);
+	ssize_t numRead;
+
+	printf("My process ID : %d\n", getpid());
 	
 	valuesToClone values;
 
-	values.fd = open ("fathersPassword.txt", O_RDWR);
+	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_TRUNC | O_CLOEXEC);
 	if (values.fd == -1) {
 		perror("Failed to open file\n");
 		exit(1);
@@ -45,33 +59,55 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-  // Chamado quando usado o argumento "vm", altera CLONE_VM para on.
+	int status = 0;
 	unsigned long flags = 0;
-	if (argc > 1 && !strcmp(argv[1], "senha123")) {
+	if (argc > 1 && !strcmp(argv[1], "sim")) {
 		flags |= CLONE_VM;
 		flags |= CLONE_FILES;
+		flags |= CLONE_VFORK;
+		status = 1;
 	}
 
-	strcpy(values.text_str, "Dados estão seguros");
-	if (clone(child_func, stack + STACK_SIZE, flags | SIGCHLD, (void*)(&values)) == -1) {
+	strcpy(values.text_msg, "Pai: Nao vou emprestar dinheiro");
+	strcpy(values.text_write, "saldo: 100.0");
+
+	if (clone(child, stack + STACK_SIZE, flags | SIGCHLD, (void*)(&values)) == -1) {
 		perror("clone");
 		exit(1);
 	}
-
-	int status;
-	if (wait(&status) == -1) {
-		perror("wait");
-		exit(1);
+	
+	if (status == 0)
+	{
+		printf("Flag CLONE_VFORK não ativada. Precisa do Wait()\n");
+		if (wait(&status) == -1) {
+			perror("wait");
+			exit(1);
+		}
 	}
-	char aux[500];
-	status = read(values.fd, aux, 500);
-	printf("%s\n", aux);
-	if (status < 0) {
-		perror("Read Failed\n");
-		printf("hacker alterou seus dados: \"%s\"\n e fechou arquivo", values.text_str);
+	else{
+		printf("Flag CLONE_VFORK ativada, Pai está suspenso ate filho terminar\n");
+	}	
+
+	char aux[MAX_READ];
+	numRead = read(values.fd, aux, MAX_READ);
+	if (numRead == -1) {
+		perror("Read Failed");
+		printf("%s\n", values.text_msg);
+		printf("-> %s\n", values.text_read);
 		exit(1);
 	}
 	close(values.fd);
-	printf("\n\ntext_str = \"%s\"\n", values.text_str);
+	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_TRUNC | O_CLOEXEC);
+
+	write (values.fd, values.text_write, strlen(values.text_write));
+	close(values.fd);
+
+	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_CLOEXEC);
+	read(values.fd, values.text_read, strlen(values.text_write));
+
+	printf("%s\n", values.text_msg);
+	printf("-> %s\n", (char*)values.text_read);
+
+	close(values.fd);
 	return 0;
 }
