@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <locale.h>
-
+#include <errno.h>
 // CLONE_FILES - CLONE_VM - CLONE_VFORK
 #define MAX_READ 30
 #define MSG 45
@@ -27,11 +27,16 @@ static int child(void* arg) {
 	ftruncate(v1->fd, 0);
 	strcpy(v1->text_msg, "Filho: Obrigado por me emprestar o dinheiro");
 	strcpy(v1->text_write, "saldo: 0.0");
+
 	write(v1->fd, v1->text_write, strlen(v1->text_write));
 
-	close(v1->fd);
-	v1->fd = open ("bank.txt", O_RDWR | O_SYNC | O_CLOEXEC);	
-	
+	/* posicionando-se no inicio do arquivo... */
+	if (lseek (v1->fd, 0, SEEK_SET) < 0)
+	{
+		perror ("Erro de posicionamento");
+		exit (errno);
+	}
+
 	read(v1->fd, v1->text_read, strlen(v1->text_write));
 
 	close(v1->fd);
@@ -96,13 +101,22 @@ int main(int argc, char** argv) {
 		printf("-> %s\n", values.text_read);
 		exit(1);
 	}
-	close(values.fd);
-	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_TRUNC | O_CLOEXEC);
+	/* posicionando-se no inicio do arquivo... */
+	if (lseek (values.fd, 0, SEEK_SET) < 0)
+	{
+		perror (argv[0]);
+		exit (errno);
+	}
 
 	write (values.fd, values.text_write, strlen(values.text_write));
-	close(values.fd);
 
-	values.fd = open ("bank.txt", O_RDWR | O_SYNC | O_CLOEXEC);
+	/* posicionando-se no inicio do arquivo... */
+	if (lseek (values.fd, 0, SEEK_SET) < 0)
+	{
+		perror (argv[0]);
+		exit (errno);
+	}
+
 	read(values.fd, values.text_read, strlen(values.text_write));
 
 	printf("%s\n", values.text_msg);
